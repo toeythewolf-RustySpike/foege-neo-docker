@@ -73,6 +73,17 @@ RUN python3 -c "import torch, torchvision; \
 # ---- ติดตั้ง requirements.txt โดยมี constraints กันไม่ให้ torch หลุด ----
 RUN python3 -m pip install --no-cache-dir -r requirements.txt -c /tmp/constraints.txt
 
+# ---- ติดตั้ง requirements.txt ของ extension built-in ทุกตัว (ControlNet Preprocessor ฯลฯ) ----
+# เหตุผล: extension พวกนี้มี requirements.txt แยกของตัวเอง ปกติจะถูกติดตั้งตอน "launch.py รันครั้งแรก"
+# เท่านั้น (ไม่ใช่ตอน build) ทำให้ทุกครั้งที่เช่า instance ใหม่ ต้องรอ pip install ซ้ำ 2-5 นาที
+# แก้โดยไล่ install ตั้งแต่ตอน build image เลย จะได้ cache ไว้ถาวรในตัว image
+RUN for req in extensions-builtin/*/requirements.txt; do \
+    if [ -f "$req" ]; then \
+    echo "[build] Installing extension requirements: $req"; \
+    python3 -m pip install --no-cache-dir -r "$req" -c /tmp/constraints.txt || true; \
+    fi; \
+    done
+
 # ---- Verify: เช็คว่า torch เป็น "CUDA build" (ไม่ใช่ CPU-only wheel) ----
 # หมายเหตุ: docker build ไม่มี GPU device ให้ container (GPU passthrough มีแค่ตอน `docker run --gpus`)
 # ดังนั้นเช็คได้แค่ "torch.version.cuda ไม่ใช่ None" (แปลว่าเป็น CUDA wheel) เท่านั้น

@@ -12,6 +12,44 @@ echo "[entrypoint] PYTORCH_VERSION fixed -> ${PYTORCH_VERSION}"
 # --- เช็ค CUDA พร้อมใช้งานจริงก่อนเปิด webui (fail เร็ว ดีกว่ารอ error ลึกๆ ทีหลัง) ---
 python3 -c "import torch; assert torch.cuda.is_available(), 'CUDA ไม่พร้อมใช้งานบน instance นี้'"
 
+# --- โหลด checkpoint หลักอัตโนมัติ (ถ้ามี CHECKPOINT_URL ส่งมาเป็น environment variable) ---
+# ใช้เลือกได้ว่าวันนี้จะเจนรูปด้วย checkpoint ตัวไหน (Z-Image Turbo, Illustrious, ฯลฯ)
+# โดยไม่ต้อง SSH เข้าไปพิมพ์เอง — ถ้าไม่ตั้งค่า จะข้ามไป (โหลดทีหลังผ่านคำสั่ง `ckpt <URL>` แทนได้)
+source /workspace/scripts/common_download.sh
+
+if [ -n "${CHECKPOINT_URL}" ]; then
+    echo "[entrypoint] พบ CHECKPOINT_URL — กำลังโหลด checkpoint หลัก..."
+    download_asset "${CHECKPOINT_URL}" "/workspace/forge/models/Stable-diffusion"
+else
+    echo "[entrypoint] ไม่พบ CHECKPOINT_URL — ยังไม่มี checkpoint ให้เลือกตอนเปิด webui"
+    echo "[entrypoint] โหลดเพิ่มทีหลังผ่าน SSH ด้วยคำสั่ง: ckpt <URL>"
+fi
+
+# --- ถ้าเป็น Z-Image checkpoint (MODEL_ARCH=zimage) ต้องมี text encoder + VAE แยกเสมอ ---
+# ไฟล์ 2 ตัวนี้ใช้ร่วมกันได้ทุก Z-Image checkpoint (ของ Tongyi ต้นทาง ไม่ใช่ของแต่ละคนที่ finetune)
+# เช็คก่อนว่ามีอยู่แล้วไหม กันโหลดซ้ำถ้าเคยมีอยู่แล้วในเซสชันนี้
+if [ "${MODEL_ARCH}" == "zimage" ]; then
+    echo "[entrypoint] MODEL_ARCH=zimage — เช็ค/โหลด text encoder + VAE ที่จำเป็น..."
+    TE_PATH="/workspace/forge/models/text_encoder/qwen_3_4b_fp8_scaled.safetensors"
+    VAE_PATH="/workspace/forge/models/VAE/ae.safetensors"
+
+    if [ ! -f "$TE_PATH" ]; then
+        aria2c -x16 -s16 \
+            "https://huggingface.co/jiangchengchengNLP/qwen3-4b-fp8-scaled/resolve/main/qwen3_4b_fp8_scaled.safetensors" \
+            -d /workspace/forge/models/text_encoder -o qwen_3_4b_fp8_scaled.safetensors
+    else
+        echo "[entrypoint] text encoder มีอยู่แล้ว ข้ามการโหลด"
+    fi
+
+    if [ ! -f "$VAE_PATH" ]; then
+        aria2c -x16 -s16 \
+            "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors" \
+            -d /workspace/forge/models/VAE -o ae.safetensors
+    else
+        echo "[entrypoint] VAE มีอยู่แล้ว ข้ามการโหลด"
+    fi
+fi
+
 # --- เปิด ngrok อัตโนมัติ (ถ้ามี NGROK_AUTHTOKEN ส่งมาเป็น environment variable) ---
 # เหตุผล: Vast.ai สุ่ม external port ทุก instance ทำให้ต้องเข้า UI ไปหา IP:Port เองทุกครั้ง
 # ngrok แก้ปัญหานี้โดยให้ URL คงรูปแบบเดียวกันเสมอ (https://xxxx.ngrok-free.dev)

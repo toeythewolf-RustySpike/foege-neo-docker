@@ -1,0 +1,16 @@
+#!/bin/bash
+# วิธีใช้: lora <URL1>,<URL2>,<URL3>...
+source /workspace/scripts/common_download.sh
+
+if [ -z "$1" ]; then
+    echo "วิธีใช้: lora <URL1>,<URL2>,..."
+    echo "ตัวอย่าง: lora https://civitai.com/models/111,https://civitai.com/models/222"
+    exit 1
+fi
+
+IFS=',' read -ra URLS <<< "$1"
+for url in "${URLS[@]}"; do
+    echo "[lora] กำลังโหลด: $url"
+    download_asset "$url" "/workspace/forge/models/Lora"
+done
+echo "[lora] เสร็จแล้ว — กลับไปกด 🔄 Refresh ที่ dropdown LoRA ใน Forge UI"

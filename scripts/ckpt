@@ -1,13 +1,21 @@
 #!/bin/bash
-# วิธีใช้: ckpt <CivitAI หรือ HuggingFace URL>
+# วิธีใช้: ckpt <URL> [architecture]
+# ตัวอย่าง: ckpt https://civitai.com/models/1234567
+#          ckpt https://huggingface.co/.../zimage.safetensors zimage
 source /workspace/scripts/common_download.sh
 
 if [ -z "$1" ]; then
-    echo "วิธีใช้: ckpt <URL>"
+    echo "วิธีใช้: ckpt <URL> [architecture]"
     echo "ตัวอย่าง: ckpt https://civitai.com/models/1234567"
+    echo "         ckpt <URL> zimage   (ถ้าเป็น Z-Image ต้องโหลด text encoder/VAE เพิ่มด้วย)"
     exit 1
 fi
 
 echo "[ckpt] กำลังโหลด checkpoint ใหม่..."
 download_asset "$1" "/workspace/forge/models/Stable-diffusion"
+
+if [ -n "$2" ]; then
+    ensure_model_arch_deps "$2"
+fi
+
 echo "[ckpt] เสร็จแล้ว — กลับไปกด 🔄 Refresh ที่ dropdown checkpoint ใน Forge UI"

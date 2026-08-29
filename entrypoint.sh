@@ -37,44 +37,46 @@ ensure_model_arch_deps "${MODEL_ARCH}" \
 #   `-e NGROK_AUTHTOKEN=...` ตอนสร้าง instance เองเท่านั้น — ถ้าไม่ตั้งค่า จะข้าม
 #   ส่วนนี้ไปเฉย ๆ แล้วใช้วิธีเดิม (หา IP:Port จากหน้า Vast.ai) แทน
 #
-# รอบนี้เปิด 2 tunnel พร้อมกัน: webui (port 7860) และ ttyd (port 7681 — terminal บนเว็บ)
-# แต่ละ tunnel ต้องมี local API คนละพอร์ต (--api-addr) ไม่งั้นตัวที่สองจะชนกับตัวแรก
+# รอบนี้เปิด 2 tunnel พร้อมกัน (webui + ttyd) ด้วย "ngrok config file" ตามวิธีที่ ngrok
+# แนะนำเองสำหรับรันหลาย tunnel พร้อมกันในโปรเซสเดียว (ngrok start --all --config)
+# วิธีนี้ยืนยันจาก docs จริงแล้ว ไม่ใช่การเดา flag เหมือนที่เคยลองผิดมาก่อน
 
 WEBUI_URL=""
 TTYD_URL=""
 
-# ฟังก์ชัน: เปิด ngrok tunnel 1 เส้น แล้วรอดึง public URL ออกมา (คืนค่าผ่าน echo)
-start_ngrok_tunnel() {
-    local port="$1"
-    local api_addr="$2"
-    local logfile="$3"
+if [ -n "${NGROK_AUTHTOKEN}" ]; then
+    echo "[entrypoint] พบ NGROK_AUTHTOKEN — กำลังเปิด public URL (webui + terminal)..."
 
-    nohup ngrok http "$port" --api-addr="$api_addr" --log="$logfile" >/dev/null 2>&1 &
+    # เปิด ttyd (terminal บนเว็บ) ก่อน ให้พร้อมรับ traffic ตั้งแต่ ngrok tunnel ขึ้น
+    ttyd -p 7681 /workspace/scripts/ttyd_welcome.sh >/workspace/ttyd.log 2>&1 &
 
-    local url=""
+    # สร้าง ngrok config file ไว้ที่ /workspace (ไม่ commit ขึ้น GitHub เพราะสร้างตอน runtime เท่านั้น)
+    cat > /workspace/ngrok.yml <<EOF
+version: "2"
+authtoken: ${NGROK_AUTHTOKEN}
+tunnels:
+  webui:
+    proto: http
+    addr: 7860
+  ttyd:
+    proto: http
+    addr: 7681
+EOF
+
+    nohup ngrok start --all --config=/workspace/ngrok.yml --log=/workspace/ngrok.log >/dev/null 2>&1 &
+
+    # รอ ngrok เปิด local API แล้วดึง public URL ของทั้งสอง tunnel ออกมาด้วยชื่อ (webui/ttyd)
     for i in $(seq 1 15); do
-        url="$(curl -s "http://${api_addr}/api/tunnels" 2>/dev/null | jq -r '.tunnels[0].public_url' 2>/dev/null)"
-        if [ -n "$url" ] && [ "$url" != "null" ]; then
+        WEBUI_URL="$(curl -s http://127.0.0.1:4040/api/tunnels 2>/dev/null | jq -r '.tunnels[] | select(.name=="webui") | .public_url' 2>/dev/null)"
+        TTYD_URL="$(curl -s http://127.0.0.1:4040/api/tunnels 2>/dev/null | jq -r '.tunnels[] | select(.name=="ttyd") | .public_url' 2>/dev/null)"
+        if [ -n "$WEBUI_URL" ] && [ "$WEBUI_URL" != "null" ]; then
             break
         fi
         sleep 1
     done
-    echo "$url"
-}
-
-if [ -n "${NGROK_AUTHTOKEN}" ]; then
-    echo "[entrypoint] พบ NGROK_AUTHTOKEN — กำลังเปิด public URL (webui + terminal)..."
-    ngrok config add-authtoken "${NGROK_AUTHTOKEN}" >/dev/null 2>&1
-
-    WEBUI_URL="$(start_ngrok_tunnel 7860 127.0.0.1:4040 /workspace/ngrok_webui.log)"
 
     # เขียนลิงก์ webui ไว้ในไฟล์ ให้ ttyd อ่านมาโชว์ตอนเปิด terminal (ไม่ต้องไปงมใน log)
     echo "${WEBUI_URL}" > /workspace/webui_url.txt
-
-    # เปิด ttyd (terminal บนเว็บ) ที่พอร์ต 7681 — รันสคริปต์ต้อนรับก่อนแล้วค่อยเข้า shell จริง
-    ttyd -p 7681 /workspace/scripts/ttyd_welcome.sh >/workspace/ttyd.log 2>&1 &
-
-    TTYD_URL="$(start_ngrok_tunnel 7681 127.0.0.1:4041 /workspace/ngrok_ttyd.log)"
 
     if [ -n "${WEBUI_URL}" ] && [ "${WEBUI_URL}" != "null" ]; then
         echo "=============================================="

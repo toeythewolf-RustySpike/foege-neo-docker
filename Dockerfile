@@ -46,6 +46,10 @@ RUN wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz
     && tar -xzf /tmp/ngrok.tgz -C /usr/local/bin \
     && rm /tmp/ngrok.tgz
 
+# ---- ติดตั้ง ttyd (terminal บนเว็บ — ใช้พิมพ์ ckpt/lora ได้ผ่านลิงก์ ไม่ต้องมี SSH client) ----
+RUN wget -q https://github.com/tsl0922/ttyd/releases/latest/download/ttyd.x86_64 -O /usr/local/bin/ttyd \
+    && chmod +x /usr/local/bin/ttyd
+
 # ทำให้ python3 ชี้ไป 3.11 เสมอ (กัน "ไม่มี python alias" ตามที่เจอมาก่อน)
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
     && curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
@@ -102,11 +106,13 @@ RUN mkdir -p \
 
 # ---- Scripts: common_download.sh (ใช้ร่วมกัน) + ckpt/lora (คำสั่งเรียกใช้ตรงๆ ผ่าน SSH) ----
 COPY scripts/common_download.sh /workspace/scripts/common_download.sh
+COPY scripts/ttyd_welcome.sh /workspace/scripts/ttyd_welcome.sh
 COPY scripts/ckpt /usr/local/bin/ckpt
 COPY scripts/lora /usr/local/bin/lora
-RUN chmod +x /workspace/scripts/common_download.sh /usr/local/bin/ckpt /usr/local/bin/lora
+RUN chmod +x /workspace/scripts/common_download.sh /workspace/scripts/ttyd_welcome.sh /usr/local/bin/ckpt /usr/local/bin/lora
 
 EXPOSE 7860
+EXPOSE 7681
 
 # entrypoint จะ export PYTORCH_VERSION ทับ (fix env var bug) ก่อนเรียก launch.py จริง
 COPY entrypoint.sh /workspace/entrypoint.sh

@@ -100,9 +100,11 @@ RUN mkdir -p \
     models/text_encoder \
     models/VAE
 
-# ---- Scripts (จะเพิ่มเข้ามาทีหลังตอน launcher scripts นิ่งแล้ว) ----
-# COPY scripts/ /workspace/scripts/
-# RUN chmod +x /workspace/scripts/*.sh
+# ---- Scripts: common_download.sh (ใช้ร่วมกัน) + ckpt/lora (คำสั่งเรียกใช้ตรงๆ ผ่าน SSH) ----
+COPY scripts/common_download.sh /workspace/scripts/common_download.sh
+COPY scripts/ckpt /usr/local/bin/ckpt
+COPY scripts/lora /usr/local/bin/lora
+RUN chmod +x /workspace/scripts/common_download.sh /usr/local/bin/ckpt /usr/local/bin/lora
 
 EXPOSE 7860
 

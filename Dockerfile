@@ -20,6 +20,7 @@ ENV PYTHONUNBUFFERED=1
 # git: clone Forge Neo repo
 # tmux: เผื่อ template ไหนไม่มี auto-tmux (ไม่ได้บังคับสร้างซ้อน แค่ให้มีติดไว้)
 # ffmpeg/libgl1: จำเป็นสำหรับ opencv-python / mediapipe ที่ Forge Neo ติดตั้ง
+# jq: ใช้ parse JSON ตอนดึง public URL จาก ngrok local API ใน entrypoint.sh
 RUN apt-get update && apt-get install -y --no-install-recommends \
     software-properties-common \
     git \
@@ -30,12 +31,20 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libgl1 \
     libglib2.0-0 \
     build-essential \
+    jq \
     && add-apt-repository -y ppa:deadsnakes/ppa \
     && apt-get update && apt-get install -y --no-install-recommends \
     python3.11 \
     python3.11-venv \
     python3.11-dev \
     && rm -rf /var/lib/apt/lists/*
+
+# ---- ติดตั้ง ngrok (สำหรับเปิด public URL อัตโนมัติ กัน Vast.ai สุ่ม external port ทุกรอบ) ----
+# หมายเหตุ: ติดตั้งแค่ตัวโปรแกรมไว้ในนี้เท่านั้น — ไม่ใส่ authtoken ในนี้เด็ดขาด
+# authtoken ต้องมาจาก environment variable ตอนรัน instance เท่านั้น (ดู entrypoint.sh)
+RUN wget -q https://bin.equinox.io/c/bNyj1mQVY4c/ngrok-v3-stable-linux-amd64.tgz -O /tmp/ngrok.tgz \
+    && tar -xzf /tmp/ngrok.tgz -C /usr/local/bin \
+    && rm /tmp/ngrok.tgz
 
 # ทำให้ python3 ชี้ไป 3.11 เสมอ (กัน "ไม่มี python alias" ตามที่เจอมาก่อน)
 RUN update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \

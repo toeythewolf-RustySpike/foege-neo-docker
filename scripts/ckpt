@@ -1,0 +1,13 @@
+#!/bin/bash
+# วิธีใช้: ckpt <CivitAI หรือ HuggingFace URL>
+source /workspace/scripts/common_download.sh
+
+if [ -z "$1" ]; then
+    echo "วิธีใช้: ckpt <URL>"
+    echo "ตัวอย่าง: ckpt https://civitai.com/models/1234567"
+    exit 1
+fi
+
+echo "[ckpt] กำลังโหลด checkpoint ใหม่..."
+download_asset "$1" "/workspace/forge/models/Stable-diffusion"
+echo "[ckpt] เสร็จแล้ว — กลับไปกด 🔄 Refresh ที่ dropdown checkpoint ใน Forge UI"

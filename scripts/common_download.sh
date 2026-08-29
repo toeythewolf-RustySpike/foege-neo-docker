@@ -64,3 +64,34 @@ _download_huggingface() {
     local dest_dir="$2"
     aria2c -x 16 -s 16 "$url" -d "$dest_dir"
 }
+
+# โหลดไฟล์เสริมที่จำเป็นตาม architecture ของ checkpoint (เรียกจาก entrypoint.sh หรือคำสั่ง ckpt ก็ได้)
+# ตอนนี้รองรับ: zimage (text encoder Qwen3 + Flux-derived VAE)
+# เผื่ออนาคต: เพิ่ม flux ได้โดยเพิ่ม case ใหม่ตรงนี้ที่เดียว ไม่ต้องแก้ที่อื่น
+ensure_model_arch_deps() {
+    local arch="$1"
+
+    if [ "$arch" == "zimage" ]; then
+        echo "[deps] MODEL_ARCH=zimage — เช็ค/โหลด text encoder + VAE ที่จำเป็น..."
+        local te_path="/workspace/forge/models/text_encoder/qwen_3_4b_fp8_scaled.safetensors"
+        local vae_path="/workspace/forge/models/VAE/ae.safetensors"
+
+        if [ ! -f "$te_path" ]; then
+            aria2c -x16 -s16 \
+                "https://huggingface.co/jiangchengchengNLP/qwen3-4b-fp8-scaled/resolve/main/qwen3_4b_fp8_scaled.safetensors" \
+                -d /workspace/forge/models/text_encoder -o qwen_3_4b_fp8_scaled.safetensors
+        else
+            echo "[deps] text encoder มีอยู่แล้ว ข้ามการโหลด"
+        fi
+
+        if [ ! -f "$vae_path" ]; then
+            aria2c -x16 -s16 \
+                "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/vae/ae.safetensors" \
+                -d /workspace/forge/models/VAE -o ae.safetensors
+        else
+            echo "[deps] VAE มีอยู่แล้ว ข้ามการโหลด"
+        fi
+    elif [ -n "$arch" ]; then
+        echo "[deps] ไม่รู้จัก architecture '$arch' — ข้ามไป (รองรับแค่ zimage ตอนนี้)"
+    fi
+}

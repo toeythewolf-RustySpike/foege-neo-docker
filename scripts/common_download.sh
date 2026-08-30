@@ -78,10 +78,11 @@ ensure_model_arch_deps() {
         local te_path="/workspace/forge/models/text_encoder/qwen_3_4b.safetensors"
         local vae_path="/workspace/forge/models/VAE/ae.safetensors"
 
-        # หมายเหตุ: เคยลองใช้ตัว fp8-scaled จาก jiangchengchengNLP มาก่อน แต่ Forge Neo
-        # อ่านแล้ว error "You do not have Qwen3 state dict!" (โครงสร้างไฟล์ไม่ตรงที่คาดหวัง)
-        # เปลี่ยนมาใช้ตัว bf16 เต็มจาก Comfy-Org แทน (repo เดียวกับ VAE ที่ใช้ได้อยู่แล้ว
-        # ด้านล่าง) ไฟล์ใหญ่ขึ้น (~8GB) แต่ความเข้ากันได้สูงกว่า
+        # หมายเหตุ: ใช้ตัว bf16 เต็มจาก Comfy-Org (repo เดียวกับ VAE ด้านล่าง) — ยืนยันจาก
+        # community guide ว่าใช้งานได้จริงกับ Forge Neo Z-Image
+        # (เคยเจอ error "You do not have Qwen3 state dict!" มาก่อน แต่สาเหตุจริงคือ Forge Neo
+        # ไม่บันทึกการเลือก text encoder ใน dropdown ตอน restart launch.py ไม่เกี่ยวกับไฟล์เลย —
+        # ถ้าเจอ error นี้อีก ให้เช็ค dropdown "VAE / Text Encoder" ในหน้า webui ก่อนสงสัยไฟล์เสีย)
         if [ ! -f "$te_path" ]; then
             aria2c -x16 -s16 \
                 "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors" \

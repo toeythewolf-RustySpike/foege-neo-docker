@@ -1,21 +1,27 @@
 #!/bin/bash
-# วิธีใช้: ckpt <URL> [architecture]
-# ตัวอย่าง: ckpt https://civitai.com/models/1234567
-#          ckpt https://huggingface.co/.../zimage.safetensors zimage
+# วิธีใช้: ckpt <URL>              (สำหรับ Illustrious/SDXL — ไม่ต้องมี arch)
+#         ckpt zimage <URL>       (สำหรับ Z-Image — พิมพ์ "ckpt zimage " ก่อน แล้ววาง URL ต่อท้ายจบเลย)
 source /workspace/scripts/common_download.sh
 
-if [ -z "$1" ]; then
-    echo "วิธีใช้: ckpt <URL> [architecture]"
-    echo "ตัวอย่าง: ckpt https://civitai.com/models/1234567"
-    echo "         ckpt <URL> zimage   (ถ้าเป็น Z-Image ต้องโหลด text encoder/VAE เพิ่มด้วย)"
+if [ "$1" == "zimage" ]; then
+    ARCH="zimage"
+    URL="$2"
+else
+    ARCH=""
+    URL="$1"
+fi
+
+if [ -z "$URL" ]; then
+    echo "วิธีใช้: ckpt <URL>"
+    echo "        ckpt zimage <URL>   (พิมพ์ 'ckpt zimage ' ก่อน แล้ววาง URL ต่อท้าย)"
     exit 1
 fi
 
 echo "[ckpt] กำลังโหลด checkpoint ใหม่..."
-download_asset "$1" "/workspace/forge/models/Stable-diffusion"
+download_asset "$URL" "/workspace/forge/models/Stable-diffusion"
 
-if [ -n "$2" ]; then
-    ensure_model_arch_deps "$2"
+if [ -n "$ARCH" ]; then
+    ensure_model_arch_deps "$ARCH"
 fi
 
 echo "[ckpt] เสร็จแล้ว — กลับไปกด 🔄 Refresh ที่ dropdown checkpoint ใน Forge UI"

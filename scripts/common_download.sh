@@ -8,7 +8,9 @@ download_asset() {
     local dest_dir="$2"
     mkdir -p "$dest_dir"
 
-    if [[ "$url" == *"civitai.com"* ]]; then
+    # CivitAI แยกเป็น 2 โดเมนตั้งแต่ เม.ย. 2026: .com (SFW) กับ .red (NSFW)
+    # เป็นบัญชี/ฐานข้อมูลเดียวกัน ใช้ logic เดียวกันได้เลย
+    if [[ "$url" == *"civitai.com"* ]] || [[ "$url" == *"civitai.red"* ]]; then
         _download_civitai "$url" "$dest_dir"
     elif [[ "$url" == *"huggingface.co"* ]]; then
         _download_huggingface "$url" "$dest_dir"

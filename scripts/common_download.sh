@@ -75,13 +75,17 @@ ensure_model_arch_deps() {
 
     if [ "$arch" == "zimage" ]; then
         echo "[deps] MODEL_ARCH=zimage — เช็ค/โหลด text encoder + VAE ที่จำเป็น..."
-        local te_path="/workspace/forge/models/text_encoder/qwen_3_4b_fp8_scaled.safetensors"
+        local te_path="/workspace/forge/models/text_encoder/qwen_3_4b.safetensors"
         local vae_path="/workspace/forge/models/VAE/ae.safetensors"
 
+        # หมายเหตุ: เคยลองใช้ตัว fp8-scaled จาก jiangchengchengNLP มาก่อน แต่ Forge Neo
+        # อ่านแล้ว error "You do not have Qwen3 state dict!" (โครงสร้างไฟล์ไม่ตรงที่คาดหวัง)
+        # เปลี่ยนมาใช้ตัว bf16 เต็มจาก Comfy-Org แทน (repo เดียวกับ VAE ที่ใช้ได้อยู่แล้ว
+        # ด้านล่าง) ไฟล์ใหญ่ขึ้น (~8GB) แต่ความเข้ากันได้สูงกว่า
         if [ ! -f "$te_path" ]; then
             aria2c -x16 -s16 \
-                "https://huggingface.co/jiangchengchengNLP/qwen3-4b-fp8-scaled/resolve/main/qwen3_4b_fp8_scaled.safetensors" \
-                -d /workspace/forge/models/text_encoder -o qwen_3_4b_fp8_scaled.safetensors
+                "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors" \
+                -d /workspace/forge/models/text_encoder -o qwen_3_4b.safetensors
         else
             echo "[deps] text encoder มีอยู่แล้ว ข้ามการโหลด"
         fi

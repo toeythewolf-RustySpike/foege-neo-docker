@@ -68,7 +68,7 @@ _download_huggingface() {
 }
 
 # โหลดไฟล์เสริมที่จำเป็นตาม architecture ของ checkpoint (เรียกจาก entrypoint.sh หรือคำสั่ง ckpt ก็ได้)
-# ตอนนี้รองรับ: zimage (text encoder Qwen3 + Flux-derived VAE)
+# ตอนนี้รองรับ: zimage (text encoder Qwen3 4B + Flux-derived VAE), anima (text encoder Qwen3 0.6B + Qwen-Image VAE)
 # เผื่ออนาคต: เพิ่ม flux ได้โดยเพิ่ม case ใหม่ตรงนี้ที่เดียว ไม่ต้องแก้ที่อื่น
 ensure_model_arch_deps() {
     local arch="$1"
@@ -98,7 +98,34 @@ ensure_model_arch_deps() {
         else
             echo "[deps] VAE มีอยู่แล้ว ข้ามการโหลด"
         fi
+
+    # --- เพิ่มใหม่: branch anima ---
+    elif [ "$arch" == "anima" ]; then
+        echo "[deps] MODEL_ARCH=anima — เช็ค/โหลด text encoder + VAE ที่จำเป็น..."
+        local te_path="/workspace/forge/models/text_encoder/qwen_3_06b_base.safetensors"
+        local vae_path="/workspace/forge/models/VAE/qwen_image_vae.safetensors"
+
+        # หมายเหตุ: Anima ใช้ text encoder/VAE คนละไฟล์กับ Z-Image เป๊ะ (Qwen3 0.6B ไม่ใช่ 4B,
+        # Qwen-Image VAE ไม่ใช่ Flux-derived VAE) ห้ามเข้าใจผิดว่าใช้ไฟล์เดียวกันได้
+        # หลังโหลดเสร็จ ต้องเข้าไปเลือก UI Preset = "anima" ในหน้า webui ด้วยตัวเอง
+        # (entrypoint.sh ตั้งให้อัตโนมัติไม่ได้ เพราะเป็นค่าที่อยู่ใน browser session)
+        if [ ! -f "$te_path" ]; then
+            aria2c -x16 -s16 \
+                "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors" \
+                -d /workspace/forge/models/text_encoder -o qwen_3_06b_base.safetensors
+        else
+            echo "[deps] text encoder มีอยู่แล้ว ข้ามการโหลด"
+        fi
+
+        if [ ! -f "$vae_path" ]; then
+            aria2c -x16 -s16 \
+                "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors" \
+                -d /workspace/forge/models/VAE -o qwen_image_vae.safetensors
+        else
+            echo "[deps] VAE มีอยู่แล้ว ข้ามการโหลด"
+        fi
+
     elif [ -n "$arch" ]; then
-        echo "[deps] ไม่รู้จัก architecture '$arch' — ข้ามไป (รองรับแค่ zimage ตอนนี้)"
+        echo "[deps] ไม่รู้จัก architecture '$arch' — ข้ามไป (รองรับ zimage, anima ตอนนี้)"
     fi
 }

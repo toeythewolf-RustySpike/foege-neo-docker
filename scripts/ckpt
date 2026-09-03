@@ -1,10 +1,11 @@
 #!/bin/bash
 # วิธีใช้: ckpt <URL>              (สำหรับ Illustrious/SDXL — ไม่ต้องมี arch)
-#         ckpt zimage <URL>       (สำหรับ Z-Image — พิมพ์ "ckpt zimage " ก่อน แล้ววาง URL ต่อท้ายจบเลย)
+#         ckpt zimage <URL>       (สำหรับ Z-Image)
+#         ckpt anima <URL>        (สำหรับ Anima)
 source /workspace/scripts/common_download.sh
 
-if [ "$1" == "zimage" ]; then
-    ARCH="zimage"
+if [ "$1" == "zimage" ] || [ "$1" == "anima" ]; then
+    ARCH="$1"
     URL="$2"
 else
     ARCH=""
@@ -14,6 +15,7 @@ fi
 if [ -z "$URL" ]; then
     echo "วิธีใช้: ckpt <URL>"
     echo "        ckpt zimage <URL>   (พิมพ์ 'ckpt zimage ' ก่อน แล้ววาง URL ต่อท้าย)"
+    echo "        ckpt anima <URL>    (พิมพ์ 'ckpt anima ' ก่อน แล้ววาง URL ต่อท้าย)"
     exit 1
 fi
 

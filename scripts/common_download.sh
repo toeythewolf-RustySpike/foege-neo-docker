@@ -44,6 +44,12 @@ _download_civitai() {
 
     echo "[download] CivitAI modelVersionId: ${version_id}"
 
+    # --- ดึงชื่อไฟล์จริงจาก API ก่อนโหลด กันได้ชื่อเป็น hash/เลขอ่านไม่ออก ---
+    local real_filename
+    real_filename="$(curl -s "https://civitai.com/api/v1/model-versions/${version_id}" \
+        --header "Authorization: Bearer ${CIVITAI_API_KEY}" \
+        | jq -r '.files[0].name')"
+
     local final_url
     final_url="$(curl -s -I -L \
         --header "Authorization: Bearer ${CIVITAI_API_KEY}" \
@@ -55,7 +61,13 @@ _download_civitai() {
         return 1
     fi
 
-    aria2c -x 16 -s 16 "$final_url" -d "$dest_dir"
+    if [ -n "$real_filename" ] && [ "$real_filename" != "null" ]; then
+        echo "[download] ชื่อไฟล์จริง: ${real_filename}"
+        aria2c -x 16 -s 16 "$final_url" -d "$dest_dir" -o "$real_filename"
+    else
+        echo "[download] คำเตือน: หาชื่อไฟล์จริงไม่ได้ — โหลดแบบไม่ระบุชื่อ (อาจได้ชื่อไฟล์เป็นตัวเลข/hash)"
+        aria2c -x 16 -s 16 "$final_url" -d "$dest_dir"
+    fi
 }
 
 _download_huggingface() {
@@ -99,16 +111,4 @@ ensure_model_arch_deps() {
                 "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors" \
                 -d /workspace/forge/models/text_encoder -o qwen_3_06b_base.safetensors
         else
-            echo "[deps] text encoder มีอยู่แล้ว ข้ามการโหลด"
-        fi
-
-        if [ ! -f "$vae_path" ]; then
-            aria2c -x16 -s16 \
-                "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/vae/qwen_image_vae.safetensors" \
-                -d /workspace/forge/models/VAE -o qwen_image_vae.safetensors
-        else
-            echo "[deps] VAE มีอยู่แล้ว ข้ามการโหลด"
-        fi
-
-    elif [ -n "$arch" ]; then
-        echo "[deps]
+            echo "[deps] text encoder

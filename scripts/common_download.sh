@@ -8,6 +8,8 @@ download_asset() {
     local dest_dir="$2"
     mkdir -p "$dest_dir"
 
+    # CivitAI แยกเป็น 2 โดเมนตั้งแต่ เม.ย. 2026: .com (SFW) กับ .red (NSFW)
+    # เป็นบัญชี/ฐานข้อมูลเดียวกัน ใช้ logic เดียวกันได้เลย
     if [[ "$url" == *"civitai.com"* ]] || [[ "$url" == *"civitai.red"* ]]; then
         _download_civitai "$url" "$dest_dir"
     elif [[ "$url" == *"huggingface.co"* ]]; then
@@ -44,12 +46,6 @@ _download_civitai() {
 
     echo "[download] CivitAI modelVersionId: ${version_id}"
 
-    # --- ดึงชื่อไฟล์จริงจาก API ก่อนโหลด กันได้ชื่อเป็น hash/เลขอ่านไม่ออก ---
-    local real_filename
-    real_filename="$(curl -s "https://civitai.com/api/v1/model-versions/${version_id}" \
-        --header "Authorization: Bearer ${CIVITAI_API_KEY}" \
-        | jq -r '.files[0].name')"
-
     local final_url
     final_url="$(curl -s -I -L \
         --header "Authorization: Bearer ${CIVITAI_API_KEY}" \
@@ -61,13 +57,8 @@ _download_civitai() {
         return 1
     fi
 
-    if [ -n "$real_filename" ] && [ "$real_filename" != "null" ]; then
-        echo "[download] ชื่อไฟล์จริง: ${real_filename}"
-        aria2c -x 16 -s 16 "$final_url" -d "$dest_dir" -o "$real_filename"
-    else
-        echo "[download] คำเตือน: หาชื่อไฟล์จริงไม่ได้ — โหลดแบบไม่ระบุชื่อ (อาจได้ชื่อไฟล์เป็นตัวเลข/hash)"
-        aria2c -x 16 -s 16 "$final_url" -d "$dest_dir"
-    fi
+    # ห้ามใส่ Authorization header ตอนนี้ (ชนกับ signed URL ทำให้ error 400)
+    aria2c -x 16 -s 16 "$final_url" -d "$dest_dir"
 }
 
 _download_huggingface() {
@@ -76,7 +67,9 @@ _download_huggingface() {
     aria2c -x 16 -s 16 "$url" -d "$dest_dir"
 }
 
-# รองรับ: zimage (Qwen3 4B + Flux-derived VAE), anima (Qwen3 0.6B + Qwen-Image VAE)
+# โหลดไฟล์เสริมที่จำเป็นตาม architecture ของ checkpoint (เรียกจาก entrypoint.sh หรือคำสั่ง ckpt ก็ได้)
+# ตอนนี้รองรับ: zimage (text encoder Qwen3 + Flux-derived VAE)
+# เผื่ออนาคต: เพิ่ม flux ได้โดยเพิ่ม case ใหม่ตรงนี้ที่เดียว ไม่ต้องแก้ที่อื่น
 ensure_model_arch_deps() {
     local arch="$1"
 
@@ -85,6 +78,11 @@ ensure_model_arch_deps() {
         local te_path="/workspace/forge/models/text_encoder/qwen_3_4b.safetensors"
         local vae_path="/workspace/forge/models/VAE/ae.safetensors"
 
+        # หมายเหตุ: ใช้ตัว bf16 เต็มจาก Comfy-Org (repo เดียวกับ VAE ด้านล่าง) — ยืนยันจาก
+        # community guide ว่าใช้งานได้จริงกับ Forge Neo Z-Image
+        # (เคยเจอ error "You do not have Qwen3 state dict!" มาก่อน แต่สาเหตุจริงคือ Forge Neo
+        # ไม่บันทึกการเลือก text encoder ใน dropdown ตอน restart launch.py ไม่เกี่ยวกับไฟล์เลย —
+        # ถ้าเจอ error นี้อีก ให้เช็ค dropdown "VAE / Text Encoder" ในหน้า webui ก่อนสงสัยไฟล์เสีย)
         if [ ! -f "$te_path" ]; then
             aria2c -x16 -s16 \
                 "https://huggingface.co/Comfy-Org/z_image_turbo/resolve/main/split_files/text_encoders/qwen_3_4b.safetensors" \
@@ -100,15 +98,7 @@ ensure_model_arch_deps() {
         else
             echo "[deps] VAE มีอยู่แล้ว ข้ามการโหลด"
         fi
-
-    elif [ "$arch" == "anima" ]; then
-        echo "[deps] MODEL_ARCH=anima — เช็ค/โหลด text encoder + VAE ที่จำเป็น..."
-        local te_path="/workspace/forge/models/text_encoder/qwen_3_06b_base.safetensors"
-        local vae_path="/workspace/forge/models/VAE/qwen_image_vae.safetensors"
-
-        if [ ! -f "$te_path" ]; then
-            aria2c -x16 -s16 \
-                "https://huggingface.co/circlestone-labs/Anima/resolve/main/split_files/text_encoders/qwen_3_06b_base.safetensors" \
-                -d /workspace/forge/models/text_encoder -o qwen_3_06b_base.safetensors
-        else
-            echo "[deps] text encoder
+    elif [ -n "$arch" ]; then
+        echo "[deps] ไม่รู้จัก architecture '$arch' — ข้ามไป (รองรับแค่ zimage ตอนนี้)"
+    fi
+}

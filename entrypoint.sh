@@ -9,11 +9,6 @@ cd /workspace/forge
 export PYTORCH_VERSION="$(python3 -c "import torch; print(torch.__version__)")"
 echo "[entrypoint] PYTORCH_VERSION fixed -> ${PYTORCH_VERSION}"
 
-# --- Fix บั๊ก: requirements.txt ไม่ pin torch version ทำให้ pip resolver อาจดึงเวอร์ชันที่ไม่มี CUDA มาทับ ---
-# บังคับ torch version ที่ verified แล้วว่าใช้ได้กับ Forge Neo (ป้องกันปัญหาภาพเทา/ช้าผิดปกติที่เคยเจอ)
-export TORCH_COMMAND="pip install torch==2.10.0+cu126 torchvision --extra-index-url https://download.pytorch.org/whl/cu126"  # <-- เพิ่มใหม่
-echo "[entrypoint] TORCH_COMMAND pinned -> cu126"  # <-- เพิ่มใหม่
-
 # --- เช็ค CUDA พร้อมใช้งานจริงก่อนเปิด webui (fail เร็ว ดีกว่ารอ error ลึกๆ ทีหลัง) ---
 python3 -c "import torch; assert torch.cuda.is_available(), 'CUDA ไม่พร้อมใช้งานบน instance นี้'"
 
@@ -77,4 +72,6 @@ else
 fi
 
 echo "[entrypoint] Starting Forge Neo..."
-exec python3 launch.py --listen --port 7860 --api --fp32-vae --enable-insecure-extension-access "$@"
+# --cuda-malloc: Forge Neo เตือนใน log ทุกครั้งว่า RTX 30 series ขึ้นไปรองรับ flag นี้
+# และช่วยเพิ่มความเร็วได้ (ยืนยันซ้ำจาก community guide การใช้ Wan 2.2 บน Forge Neo ด้วย)
+exec python3 launch.py --listen --port 7860 --api --cuda-malloc "$@"
